@@ -1,0 +1,341 @@
+/* Base Styles */
+body {
+    background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Card Styling */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    border: none;
+    border-radius: 0.5rem;
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 2px solid #e9ecef;
+    font-weight: 600;
+}
+
+/* Product Buttons */
+.btn-product {
+    width: 100%;
+    height: 120px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-product:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Sale List */
+.list-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.remove-item {
+    cursor: pointer;
+    color: #dc3545;
+    font-size: 1.2rem;
+    padding: 0 5px;
+    transition: color 0.2s;
+}
+
+.remove-item:hover {
+    color: #c82333;
+}
+
+/* Currency Styling */
+.currency {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.currency::after {
+    content: " TND";
+    font-size: 0.85em;
+    font-weight: 400;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+    text-align: center;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    transition: transform 0.2s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-3px);
+}
+
+.dashboard-card h5 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-card h3 {
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+/* Order Items */
+.order-item {
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.order-item:hover {
+    background-color: #f8f9fa;
+}
+
+.order-status {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Stock Alerts */
+.stock-alert {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.stock-alert strong {
+    color: #856404;
+}
+
+/* Stock Status Colors */
+.stock-good { color: #28a745; font-weight: 600; }
+.stock-warning { color: #ffc107; font-weight: 600; }
+.stock-danger { color: #dc3545; font-weight: 600; }
+
+/* Expense Categories */
+.expense-stock { background-color: #e3f2fd; }
+.expense-rent { background-color: #f3e5f5; }
+.expense-salary { background-color: #e8f5e9; }
+.expense-utilities { background-color: #fff3e0; }
+.expense-other { background-color: #fce4ec; }
+
+/* Form Controls */
+.form-control, .form-select {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+/* Buttons */
+.btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Tables */
+.table {
+    background-color: white;
+}
+
+.table-responsive {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+/* Mobile Responsive - Tablets */
+@media (max-width: 768px) {
+    .btn-product {
+        height: 100px;
+        font-size: 0.9rem;
+        padding: 0.5rem;
+    }
+    
+    .dashboard-card {
+        padding: 1rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.5rem;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .currency::after {
+        content: " DT";
+    }
+}
+
+/* Mobile Responsive - Phones */
+@media (max-width: 576px) {
+    /* Main container adjustments */
+    .container-fluid {
+        padding: 0.5rem;
+    }
+    
+    /* Product grid - 2 columns on mobile */
+    .col-6 {
+        padding: 0.25rem;
+    }
+    
+    .btn-product {
+        height: 80px;
+        font-size: 0.8rem;
+        padding: 0.25rem;
+    }
+    
+    /* Stack main sections on mobile */
+    .row > .col-md-8,
+    .row > .col-md-4 {
+        margin-bottom: 1rem;
+    }
+    
+    /* Adjust card spacing */
+    .card {
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-header {
+        padding: 0.75rem;
+    }
+    
+    .card-body {
+        padding: 0.75rem;
+    }
+    
+    /* Smaller text and buttons */
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    h3 {
+        font-size: 1.25rem;
+    }
+    
+    h5 {
+        font-size: 1rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    /* Order list adjustments */
+    .order-item {
+        font-size: 0.875rem;
+        padding: 0.5rem;
+    }
+    
+    .order-item small {
+        font-size: 0.75rem;
+    }
+    
+    /* Table adjustments */
+    .table {
+        font-size: 0.75rem;
+    }
+    
+    .table td, .table th {
+        padding: 0.5rem;
+    }
+    
+    /* Form adjustments */
+    .form-control, .form-select {
+        font-size: 0.875rem;
+        padding: 0.5rem;
+    }
+    
+    /* Modal adjustments */
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    /* Dashboard cards in a 2x2 grid on mobile */
+    .dashboard-card {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .dashboard-card h5 {
+        font-size: 0.75rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.25rem;
+    }
+    
+    /* Navigation buttons */
+    .d-grid .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Touch-friendly elements */
+@media (hover: none) {
+    .btn-product {
+        -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    }
+    
+    .remove-item {
+        padding: 5px 10px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .btn, .form-control, .stock-alert {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+    }
+}

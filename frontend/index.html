@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple POS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid my-3 my-md-4">
+        <h1 class="text-center mb-3 mb-md-4">Point of Sale</h1>
+        
+        <div class="row">
+            <!-- Product Grid -->
+            <div class="col-12 col-md-8 mb-3 mb-md-0">
+                <div id="product-grid" class="row g-2 g-md-3">
+                    <!-- Product buttons will be dynamically inserted here -->
+                </div>
+            </div>
+            
+            <!-- Current Sale & Orders -->
+            <div class="col-12 col-md-4">
+                <!-- Current Sale -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0 fs-5 fs-md-4">Current Sale</h3>
+                        <span class="badge bg-primary" id="sale-count">0</span>
+                    </div>
+                    <div class="card-body">
+                        <ul id="current-sale" class="list-group list-group-flush mb-3">
+                            <!-- Selected products will appear here -->
+                        </ul>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fs-5">Total:</h4>
+                            <h4 class="fs-5" id="total-amount">0.00 TND</h4>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button id="clear-sale" class="btn btn-warning">Clear Sale</button>
+                            <button id="complete-order" class="btn btn-success btn-lg">Complete Order</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Today's Orders -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fs-6">Today's Orders</h5>
+                        <span class="badge bg-primary" id="orders-count">0</span>
+                    </div>
+                    <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                        <div id="orders-list">
+                            <!-- Orders will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation Menu -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 fs-6">Navigation</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="/orders" class="btn btn-info">📋 View All Orders</a>
+                            <a href="/backoffice" class="btn btn-secondary">⚙️ Manage Products</a>
+                            <a href="/stock" class="btn btn-warning">📦 Stock Management</a>
+                            <a href="/expenses" class="btn btn-danger">💰 Expenses</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
