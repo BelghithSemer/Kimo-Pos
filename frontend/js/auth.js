@@ -1,40 +1,44 @@
 // Check if user is logged in
-function checkAuth() {
+async function checkAuth() {
     const token = localStorage.getItem('token');
+    
+    // If no token, redirect to login (but not if already on login page)
     if (!token) {
-        // Redirect to login if not on login page
-        if (!window.location.pathname.includes('login.html')) {
+        if (!window.location.pathname.includes('login')) {
             window.location.href = '/login';
         }
         return false;
     }
     
-    // Verify token
-    fetch('/api/auth/verify', {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    })
-    .then(response => {
+    try {
+        // Verify token
+        const response = await fetch('/api/auth/verify', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
         if (!response.ok) {
             throw new Error('Invalid token');
         }
-        return response.json();
-    })
-    .then(data => {
+        
+        const data = await response.json();
+        
         // Store user info
         localStorage.setItem('user', JSON.stringify(data.user));
-    })
-    .catch(error => {
-        // Token is invalid, redirect to login
+        return true;
+        
+    } catch (error) {
+        console.error('Auth verification failed:', error);
+        // Token is invalid, clear storage and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        if (!window.location.pathname.includes('login.html')) {
+        
+        if (!window.location.pathname.includes('login')) {
             window.location.href = '/login';
         }
-    });
-    
-    return true;
+        return false;
+    }
 }
 
 // Add auth header to all API requests
@@ -54,6 +58,11 @@ if (document.getElementById('login-form')) {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const errorDiv = document.getElementById('error-message');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        
+        // Disable submit button during login
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in...';
         
         try {
             const response = await fetch('/api/auth/login', {
@@ -74,15 +83,24 @@ if (document.getElementById('login-form')) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             
+            // Hide error message if visible
+            errorDiv.classList.add('d-none');
+            
             // Redirect based on role
             if (data.user.role === 'admin') {
                 window.location.href = '/backoffice';
             } else {
                 window.location.href = '/';
             }
+            
         } catch (error) {
+            console.error('Login error:', error);
             errorDiv.textContent = 'Connection error. Please try again.';
             errorDiv.classList.remove('d-none');
+        } finally {
+            // Re-enable submit button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign in';
         }
     });
 }
@@ -94,7 +112,37 @@ function logout() {
     window.location.href = '/login';
 }
 
-// Check auth on page load (except login page)
-if (!window.location.pathname.includes('login.html')) {
-    checkAuth();
-}
+// Initialize auth check
+document.addEventListener('DOMContentLoaded', async () => {
+    // Skip auth check on login page
+    if (window.location.pathname.includes('login')) {
+        // If user is already logged in, redirect to appropriate page
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const response = await fetch('/api/auth/verify', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // User is already logged in, redirect
+                    if (data.user.role === 'admin') {
+                        window.location.href = '/backoffice';
+                    } else {
+                        window.location.href = '/';
+                    }
+                    return;
+                }
+            } catch (error) {
+                // Token is invalid, clear it and stay on login page
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        }
+        return; // Stay on login page
+    }
+    
+    // For all other pages, check authentication
+    await checkAuth();
+});

@@ -6,41 +6,143 @@
     <title>Expense Management - Simple POS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
+    <style>
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding: 0.5rem;
+            }
+            
+            .table-responsive {
+                border: none;
+            }
+            
+            .desktop-table {
+                display: none !important;
+            }
+            
+            .mobile-cards {
+                display: block !important;
+            }
+            
+            .expense-card {
+                border: 1px solid #dee2e6;
+                border-radius: 0.375rem;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                background: white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .expense-card .expense-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+            
+            .expense-card .expense-details {
+                margin-bottom: 1rem;
+                font-size: 0.9rem;
+            }
+            
+            .expense-card .expense-actions {
+                text-align: right;
+            }
+            
+            .summary-cards .card {
+                margin-bottom: 1rem;
+            }
+            
+            .filter-controls {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .filter-controls .form-control {
+                width: 100% !important;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-cards {
+                display: none !important;
+            }
+            
+            .desktop-table {
+                display: table !important;
+            }
+        }
+
+        /* Category color coding */
+        .category-stock { border-left: 4px solid #007bff; }
+        .category-rent { border-left: 4px solid #6f42c1; }
+        .category-salary { border-left: 4px solid #28a745; }
+        .category-utilities { border-left: 4px solid #ffc107; }
+        .category-other { border-left: 4px solid #6c757d; }
+
+        .summary-card {
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            color: white;
+            margin-bottom: 1rem;
+        }
+        
+        .summary-card h5 {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .summary-card h3 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid my-4">
         <h1 class="text-center mb-4">Expense Management</h1>
         
         <!-- Navigation -->
-        <div class="mb-4">
-            <a href="/" class="btn btn-primary me-2">Back to POS</a>
-            <a href="/backoffice" class="btn btn-secondary me-2">Backoffice</a>
-            <a href="/stock" class="btn btn-info">Stock Management</a>
+        <div class="mb-4 text-center">
+            <a href="/" class="btn btn-primary me-2">🏠 Back to POS</a>
+            <a href="/backoffice" class="btn btn-secondary me-2">⚙️ Backoffice</a>
+            <a href="/stock" class="btn btn-info me-2">📦 Stock Management</a>
+            <a href="/orders" class="btn btn-warning">📋 Orders</a>
         </div>
         
-        <!-- Daily Summary -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Daily Financial Summary</h5>
-                            <input type="date" id="summary-date" class="form-control" style="width: auto;">
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="daily-summary" class="row">
-                            <!-- Summary will be displayed here -->
-                        </div>
-                    </div>
+        <!-- Expense Summary Cards -->
+        <div class="row mb-4 summary-cards">
+            <div class="col-md-4 col-12">
+                <div class="summary-card bg-warning text-dark">
+                    <h5>Today's Expenses</h5>
+                    <h3 id="today-expenses">0.00 TND</h3>
+                    <small id="today-count">0 expenses</small>
+                </div>
+            </div>
+            <div class="col-md-4 col-12">
+                <div class="summary-card bg-info">
+                    <h5>This Week's Expenses</h5>
+                    <h3 id="week-expenses">0.00 TND</h3>
+                    <small id="week-count">0 expenses</small>
+                </div>
+            </div>
+            <div class="col-md-4 col-12">
+                <div class="summary-card bg-danger">
+                    <h5>This Month's Expenses</h5>
+                    <h3 id="month-expenses">0.00 TND</h3>
+                    <small id="month-count">0 expenses</small>
                 </div>
             </div>
         </div>
         
-        <!-- Add Expense -->
+        <!-- Main Content -->
         <div class="row">
-            <div class="col-md-4">
-                <div class="card mb-4">
+            <!-- Add Expense Form -->
+            <div class="col-lg-4 col-md-5 mb-4">
+                <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">Add Expense</h5>
                     </div>
@@ -62,6 +164,8 @@
                                     <option value="rent">Rent</option>
                                     <option value="salary">Salary</option>
                                     <option value="utilities">Utilities</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="marketing">Marketing</option>
                                     <option value="other">Other</option>
                                 </select>
                             </div>
@@ -88,22 +192,23 @@
             </div>
             
             <!-- Expenses List -->
-            <div class="col-md-8">
+            <div class="col-lg-8 col-md-7">
                 <div class="card">
                     <div class="card-header">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap">
                             <h5 class="mb-0">Recent Expenses</h5>
-                            <div>
-                                <input type="date" id="filter-start-date" class="form-control d-inline" style="width: auto;">
-                                <span class="mx-2">to</span>
-                                <input type="date" id="filter-end-date" class="form-control d-inline" style="width: auto;">
-                                <button class="btn btn-sm btn-primary ms-2" onclick="filterExpenses()">Filter</button>
+                            <div class="filter-controls d-flex align-items-center">
+                                <input type="date" id="filter-start-date" class="form-control me-2" style="width: auto; min-width: 120px;">
+                                <span class="mx-1">to</span>
+                                <input type="date" id="filter-end-date" class="form-control me-2" style="width: auto; min-width: 120px;">
+                                <button class="btn btn-sm btn-primary" onclick="filterExpenses()">Filter</button>
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-bordered">
+                        <!-- Desktop Table -->
+                        <div class="table-responsive desktop-table">
+                            <table class="table table-hover">
                                 <thead>
                                     <tr>
                                         <th>Date</th>
@@ -118,7 +223,42 @@
                                 </tbody>
                             </table>
                         </div>
+                        
+                        <!-- Mobile Cards -->
+                        <div class="mobile-cards" id="expenses-mobile">
+                            <!-- Mobile expense cards will be displayed here -->
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div id="empty-state" class="text-center p-4 d-none">
+                            <p class="text-muted">No expenses found for the selected period</p>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteExpenseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Expense Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this expense?</p>
+                    <div class="alert alert-warning">
+                        <strong>Warning:</strong> This action cannot be undone.
+                    </div>
+                    <div id="delete-expense-details">
+                        <!-- Expense details will be shown here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete Expense</button>
                 </div>
             </div>
         </div>

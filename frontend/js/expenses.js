@@ -11,9 +11,11 @@ window.fetch = function(url, options = {}) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    const deleteExpenseModal = new bootstrap.Modal(document.getElementById('deleteExpenseModal'));
+    let expenseToDelete = null;
+    
     // Set today's date as default
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('summary-date').value = today;
     document.getElementById('expense-date').value = today;
     document.getElementById('filter-end-date').value = today;
     
@@ -21,6 +23,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     document.getElementById('filter-start-date').value = startOfMonth.toISOString().split('T')[0];
+    
+    // Currency formatter
+    function formatCurrency(amount) {
+        return `${amount.toFixed(2)} TND`;
+    }
+
+    // Get category badge class
+    function getCategoryBadge(category) {
+        const badges = {
+            'stock': 'bg-primary',
+            'rent': 'bg-secondary',
+            'salary': 'bg-success',
+            'utilities': 'bg-warning text-dark',
+            'maintenance': 'bg-info',
+            'marketing': 'bg-dark',
+            'other': 'bg-secondary'
+        };
+        return badges[category] || 'bg-secondary';
+    }
+    
+    // Load expense period summaries
+    function loadExpenseSummaries() {
+        // Load today's expenses
+        fetch('/api/expenses/today')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('today-expenses').textContent = formatCurrency(data.total);
+                document.getElementById('today-count').textContent = `${data.count} expense${data.count !== 1 ? 's' : ''}`;
+            })
+            .catch(error => console.error('Error loading today expenses:', error));
+
+        // Load this week's expenses
+        fetch('/api/expenses/week')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('week-expenses').textContent = formatCurrency(data.total);
+                document.getElementById('week-count').textContent = `${data.count} expense${data.count !== 1 ? 's' : ''}`;
+            })
+            .catch(error => console.error('Error loading week expenses:', error));
+
+        // Load this month's expenses
+        fetch('/api/expenses/month')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('month-expenses').textContent = formatCurrency(data.total);
+                document.getElementById('month-count').textContent = `${data.count} expense${data.count !== 1 ? 's' : ''}`;
+            })
+            .catch(error => console.error('Error loading month expenses:', error));
+    }
     
     // Load stock items for dropdown
     function loadStockItems() {
@@ -47,42 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Load daily summary
-    function loadDailySummary(date) {
-        fetch(`/api/expenses/summary/${date}`)
-            .then(response => response.json())
-            .then(summary => {
-                const summaryDiv = document.getElementById('daily-summary');
-                summaryDiv.innerHTML = `
-                    <div class="col-md-3">
-                        <div class="dashboard-card bg-success text-white">
-                            <h5>Revenue</h5>
-                            <h3 class="currency">${summary.revenue.toFixed(2)}</h3>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="dashboard-card bg-warning text-dark">
-                            <h5>Cost of Goods</h5>
-                            <h3 class="currency">${summary.cost_of_goods.toFixed(2)}</h3>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="dashboard-card bg-danger text-white">
-                            <h5>Expenses</h5>
-                            <h3 class="currency">${summary.expenses.toFixed(2)}</h3>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="dashboard-card ${summary.net_profit >= 0 ? 'bg-info' : 'bg-dark'} text-white">
-                            <h5>Net Profit</h5>
-                            <h3 class="currency">${summary.net_profit.toFixed(2)}</h3>
-                        </div>
-                    </div>
-                `;
-            })
-            .catch(error => console.error('Error loading summary:', error));
-    }
-    
     // Load expenses
     function loadExpenses(startDate, endDate) {
         const url = `/api/expenses?startDate=${startDate}&endDate=${endDate}`;
@@ -90,32 +105,92 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(response => response.json())
             .then(expenses => {
                 const expensesTable = document.getElementById('expenses-table');
+                const expensesMobile = document.getElementById('expenses-mobile');
+                const emptyState = document.getElementById('empty-state');
+                
                 expensesTable.innerHTML = '';
+                expensesMobile.innerHTML = '';
                 
                 if (expenses.length === 0) {
-                    expensesTable.innerHTML = '<tr><td colspan="5" class="text-center">No expenses found</td></tr>';
+                    emptyState.classList.remove('d-none');
                     return;
                 }
                 
+                emptyState.classList.add('d-none');
+                
                 expenses.forEach(expense => {
                     const date = new Date(expense.date).toLocaleDateString();
-                    const categoryClass = `expense-${expense.category}`;
+                    const categoryClass = `category-${expense.category}`;
+                    const badgeClass = getCategoryBadge(expense.category);
                     
+                    // Desktop table row
                     const tr = document.createElement('tr');
                     tr.className = categoryClass;
                     tr.innerHTML = `
                         <td>${date}</td>
                         <td>${expense.description}</td>
-                        <td>${expense.category}</td>
-                        <td><span class="currency">${expense.amount.toFixed(2)}</span></td>
+                        <td><span class="badge ${badgeClass}">${expense.category}</span></td>
+                        <td><strong>${formatCurrency(expense.amount)}</strong></td>
                         <td>
-                            <button class="btn btn-sm btn-danger" onclick="deleteExpense('${expense._id}')">Delete</button>
+                            <button class="btn btn-sm btn-danger delete-expense" data-expense-id="${expense._id}">
+                                Delete
+                            </button>
                         </td>
                     `;
                     expensesTable.appendChild(tr);
+
+                    // Mobile card
+                    const mobileCard = document.createElement('div');
+                    mobileCard.className = `expense-card ${categoryClass}`;
+                    mobileCard.innerHTML = `
+                        <div class="expense-header">
+                            <strong>${expense.description}</strong>
+                            <span class="badge ${badgeClass}">${expense.category}</span>
+                        </div>
+                        <div class="expense-details">
+                            <div><strong>Date:</strong> ${date}</div>
+                            <div><strong>Amount:</strong> ${formatCurrency(expense.amount)}</div>
+                        </div>
+                        <div class="expense-actions">
+                            <button class="btn btn-sm btn-danger delete-expense" data-expense-id="${expense._id}">
+                                Delete
+                            </button>
+                        </div>
+                    `;
+                    expensesMobile.appendChild(mobileCard);
+                });
+
+                // Add event listeners for delete buttons
+                document.querySelectorAll('.delete-expense').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const expenseId = this.getAttribute('data-expense-id');
+                        showDeleteConfirmation(expenseId, expenses);
+                    });
                 });
             })
             .catch(error => console.error('Error loading expenses:', error));
+    }
+
+    // Show delete confirmation
+    function showDeleteConfirmation(expenseId, expenses) {
+        const expense = expenses.find(e => e._id === expenseId);
+        if (!expense) return;
+
+        expenseToDelete = expenseId;
+        const detailsDiv = document.getElementById('delete-expense-details');
+        
+        detailsDiv.innerHTML = `
+            <div class="card">
+                <div class="card-body">
+                    <h6>${expense.description}</h6>
+                    <p class="mb-1"><strong>Category:</strong> ${expense.category}</p>
+                    <p class="mb-1"><strong>Amount:</strong> ${formatCurrency(expense.amount)}</p>
+                    <p class="mb-0"><strong>Date:</strong> ${new Date(expense.date).toLocaleDateString()}</p>
+                </div>
+            </div>
+        `;
+        
+        deleteExpenseModal.show();
     }
     
     // Add expense
@@ -144,13 +219,18 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(expenseData)
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             alert('Expense added successfully!');
             document.getElementById('add-expense-form').reset();
             document.getElementById('expense-date').value = today;
             filterExpenses();
-            loadDailySummary(document.getElementById('summary-date').value);
+            loadExpenseSummaries();
         })
         .catch(error => {
             console.error('Error adding expense:', error);
@@ -159,23 +239,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Delete expense
-    window.deleteExpense = function(expenseId) {
-        if (confirm('Are you sure you want to delete this expense?')) {
-            fetch(`/api/expenses/${expenseId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert('Expense deleted successfully!');
-                filterExpenses();
-                loadDailySummary(document.getElementById('summary-date').value);
-            })
-            .catch(error => {
-                console.error('Error deleting expense:', error);
-                alert('Error deleting expense!');
-            });
-        }
-    };
+    function deleteExpense(expenseId) {
+        fetch(`/api/expenses/${expenseId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert('Expense deleted successfully!');
+            deleteExpenseModal.hide();
+            filterExpenses();
+            loadExpenseSummaries();
+        })
+        .catch(error => {
+            console.error('Error deleting expense:', error);
+            alert('Error deleting expense!');
+        });
+    }
     
     // Filter expenses
     window.filterExpenses = function() {
@@ -183,13 +267,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const endDate = document.getElementById('filter-end-date').value;
         loadExpenses(startDate, endDate);
     };
-    
-    // Handle summary date change
-    document.getElementById('summary-date').addEventListener('change', (e) => {
-        loadDailySummary(e.target.value);
+
+    // Delete confirmation
+    document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+        if (expenseToDelete) {
+            deleteExpense(expenseToDelete);
+            expenseToDelete = null;
+        }
     });
     
     // Initial load
-    loadDailySummary(today);
+    loadExpenseSummaries();
     filterExpenses();
 });

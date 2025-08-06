@@ -24,6 +24,84 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Get today's expenses total
+router.get('/today', async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const expenses = await Expense.find({
+            date: { $gte: today, $lt: tomorrow }
+        });
+        
+        const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        
+        res.json({
+            total,
+            count: expenses.length,
+            expenses: expenses
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get this week's expenses total
+router.get('/week', async (req, res) => {
+    try {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        
+        const expenses = await Expense.find({
+            date: { $gte: startOfWeek, $lt: endOfWeek }
+        });
+        
+        const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        
+        res.json({
+            total,
+            count: expenses.length,
+            startDate: startOfWeek,
+            endDate: endOfWeek,
+            expenses: expenses
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get this month's expenses total
+router.get('/month', async (req, res) => {
+    try {
+        const today = new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        
+        const expenses = await Expense.find({
+            date: { $gte: startOfMonth, $lt: endOfMonth }
+        });
+        
+        const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        
+        res.json({
+            total,
+            count: expenses.length,
+            startDate: startOfMonth,
+            endDate: endOfMonth,
+            expenses: expenses
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Add new expense
 router.post('/', async (req, res) => {
     try {

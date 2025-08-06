@@ -6,21 +6,129 @@
     <title>Backoffice - Simple POS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
+    <!-- Update the CSS in the <style> section -->
+<style>
+    /* Mobile responsive fixes */
+    @media (max-width: 768px) {
+        .table-responsive {
+            border: none;
+        }
+        
+        .mobile-card {
+            display: block !important;
+        }
+        
+        .desktop-table {
+            display: none !important;
+        }
+        
+        .product-card {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: white;
+        }
+        
+        .product-card .product-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .product-card .product-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .product-card .product-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .product-card .btn {
+            flex: 1;
+            min-width: 60px;
+        }
+
+        .summary-cards .col-lg-2 {
+            margin-bottom: 1rem;
+        }
+        
+        /* Make cards smaller on mobile */
+        .summary-cards .card-body {
+            padding: 0.75rem;
+        }
+        
+        .summary-cards h6 {
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .summary-cards h4 {
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+    }
+    
+    @media (min-width: 769px) {
+        .mobile-card {
+            display: none !important;
+        }
+        
+        .desktop-table {
+            display: table !important;
+        }
+    }
+
+    /* Category badge styles */
+    .category-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .category-coffee {
+        background-color: #8B4513;
+        color: white;
+    }
+    
+    .category-drinks {
+        background-color: #1E90FF;
+        color: white;
+    }
+    
+    .category-other {
+        background-color: #32CD32;
+        color: white;
+    }
+    
+    /* Summary card improvements */
+    .summary-cards .card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .summary-cards .card-body {
+        padding: 1rem;
+    }
+</style>
 </head>
 <body>
     <div class="container my-4">
         <h1 class="text-center mb-4">Backoffice - Manage Products</h1>
         
         <!-- Navigation -->
-        <!-- Update the navigation section in backoffice.html -->
-<div class="mb-4">
-    <a href="/" class="btn btn-primary">🏠 Back to POS</a>
-    <a href="/stock" class="btn btn-warning">📦 Stock Management</a>
-    <a href="/expenses" class="btn btn-danger">💰 Expenses</a>
-    <a href="/orders" class="btn btn-info">📋 Orders</a>
-    <a href="/users" class="btn btn-primary">👥 Manage Users</a>
-    <button class="btn btn-danger float-end" onclick="logout()">Logout</button>
-</div>
+        <div class="mb-4">
+            <a href="/" class="btn btn-primary">🏠 Back to POS</a>
+            <a href="/stock" class="btn btn-warning">📦 Stock Management</a>
+            <a href="/expenses" class="btn btn-danger">💰 Expenses</a>
+            <a href="/orders" class="btn btn-info">📋 Orders</a>
+            <a href="/users" class="btn btn-primary">👥 Manage Users</a>
+            <button class="btn btn-danger float-end" onclick="logout()">Logout</button>
+        </div>
         
         <!-- Navigation Tabs -->
         <ul class="nav nav-tabs mb-4">
@@ -36,7 +144,7 @@
             <!-- Products Tab -->
             <div class="tab-pane fade show active" id="products-tab">
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-lg-4 mb-4">
                         <div class="card">
                             <div class="card-header">
                                 <h3 class="mb-0">Add New Product</h3>
@@ -46,6 +154,14 @@
                                     <div class="mb-3">
                                         <label for="product-name" class="form-label">Product Name</label>
                                         <input type="text" class="form-control" id="product-name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="product-category" class="form-label">Category</label>
+                                        <select class="form-control" id="product-category" required>
+                                            <option value="coffee">Coffee</option>
+                                            <option value="drinks">Drinks</option>
+                                            <option value="other">Other</option>
+                                        </select>
                                     </div>
                                     <div class="mb-3">
                                         <label for="product-price" class="form-label">Sale Price (TND)</label>
@@ -70,18 +186,19 @@
                         </div>
                     </div>
                     
-                    <div class="col-md-8">
+                    <div class="col-lg-8">
                         <div class="card">
                             <div class="card-header">
                                 <h3 class="mb-0">Existing Products</h3>
                             </div>
                             <div class="card-body">
-                                <div class="table-responsive">
+                                <!-- Desktop Table -->
+                                <div class="table-responsive desktop-table">
                                     <table class="table table-bordered">
                                         <thead>
                                             <tr>
-                                                <th>ID</th>
                                                 <th>Name</th>
+                                                <th>Category</th>
                                                 <th>Sale Price</th>
                                                 <th>Base Price</th>
                                                 <th>Profit</th>
@@ -92,6 +209,11 @@
                                             <!-- Products will be dynamically inserted here -->
                                         </tbody>
                                     </table>
+                                </div>
+                                
+                                <!-- Mobile Cards -->
+                                <div class="mobile-card" id="products-mobile">
+                                    <!-- Mobile product cards will be inserted here -->
                                 </div>
                             </div>
                         </div>

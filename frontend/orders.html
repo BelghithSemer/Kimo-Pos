@@ -6,33 +6,175 @@
     <title>Orders Management - Simple POS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
+    <style>
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .table-responsive {
+                border: none;
+            }
+            
+            .desktop-table {
+                display: none !important;
+            }
+            
+            .mobile-cards {
+                display: block !important;
+            }
+            
+            .order-card {
+                border: 1px solid #dee2e6;
+                border-radius: 0.375rem;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                background: white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .order-card .order-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+            
+            .order-card .order-details {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+                font-size: 0.9rem;
+            }
+            
+            .order-card .order-actions {
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            }
+            
+            .order-card .btn {
+                flex: 1;
+                min-width: 80px;
+                font-size: 0.8rem;
+                padding: 0.375rem 0.5rem;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-cards {
+                display: none !important;
+            }
+            
+            .desktop-table {
+                display: table !important;
+            }
+        }
+
+        .status-paid {
+            background-color: #d4edda;
+        }
+        
+        .status-unpaid {
+            background-color: #fff3cd;
+        }
+    </style>
 </head>
 <body>
     <div class="container my-4">
         <h1 class="text-center mb-4">Orders Management</h1>
         
+        <!-- Navigation and Date Selection -->
         <div class="row mb-4">
             <div class="col-md-6">
                 <label for="order-date" class="form-label">Select Date:</label>
                 <input type="date" id="order-date" class="form-control">
             </div>
-            <div class="col-md-6 d-flex align-items-end">
-                <a href="/" class="btn btn-primary me-2">Back to POS</a>
-                <a href="/backoffice" class="btn btn-secondary">Backoffice</a>
+            <div class="col-md-6 d-flex align-items-end justify-content-end">
+                <a href="/" class="btn btn-primary me-2">🏠 Back to POS</a>
+                <a href="/backoffice" class="btn btn-secondary me-2">⚙️ Backoffice</a>
+                <button class="btn btn-info" onclick="exportOrders()">📄 Export CSV</button>
             </div>
         </div>
         
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6 mb-2">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">Total Orders</h5>
+                        <h3 id="total-orders">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">Unpaid</h5>
+                        <h3 id="unpaid-count">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">Paid</h5>
+                        <h3 id="paid-count">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">Total Revenue</h5>
+                        <h3 id="total-revenue">0.00 TND</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Orders Display -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h3 class="mb-0">Orders for <span id="selected-date"></span></h3>
-                <div>
-                    <span class="badge bg-warning text-dark me-2">Unpaid: <span id="unpaid-count">0</span></span>
-                    <span class="badge bg-success">Paid: <span id="paid-count">0</span></span>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterAll" value="all" checked>
+                    <label class="btn btn-outline-primary" for="filterAll">All</label>
+                    
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterPaid" value="paid">
+                    <label class="btn btn-outline-success" for="filterPaid">Paid</label>
+                    
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterUnpaid" value="unpaid">
+                    <label class="btn btn-outline-warning" for="filterUnpaid">Unpaid</label>
                 </div>
             </div>
             <div class="card-body">
-                <div id="orders-container">
-                    <!-- Orders will be displayed here -->
+                <!-- Desktop Table -->
+                <div class="table-responsive desktop-table">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Order Number</th>
+                                <th>Type</th>
+                                <th>Total</th>
+                                <th>Profit</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <!-- Orders will be displayed here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Mobile Cards -->
+                <div class="mobile-cards" id="orders-mobile">
+                    <!-- Mobile order cards will be displayed here -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="text-center p-4 d-none">
+                    <p class="text-muted">No orders for this date</p>
                 </div>
             </div>
         </div>
@@ -40,7 +182,7 @@
 
     <!-- Order Details Modal -->
     <div class="modal fade" id="orderDetailsModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Order Details</h5>
@@ -51,6 +193,31 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteOrderModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Order Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this order?</p>
+                    <div class="alert alert-warning">
+                        <strong>Warning:</strong> This action cannot be undone. The order will be permanently deleted and any associated table will be freed.
+                    </div>
+                    <div id="delete-order-details">
+                        <!-- Order details will be shown here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete Order</button>
                 </div>
             </div>
         </div>

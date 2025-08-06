@@ -8,6 +8,10 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        
         // Find user
         const user = await User.findOne({ email });
         if (!user) {
@@ -54,8 +58,21 @@ router.get('/verify', verifyToken, async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json({ user });
+        
+        if (!user.isActive) {
+            return res.status(401).json({ error: 'Account is deactivated' });
+        }
+        
+        res.json({ 
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role
+            }
+        });
     } catch (error) {
+        console.error('Verification error:', error);
         res.status(500).json({ error: 'Verification failed' });
     }
 });
@@ -64,6 +81,10 @@ router.get('/verify', verifyToken, async (req, res) => {
 router.post('/change-password', verifyToken, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
+        
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Current password and new password are required' });
+        }
         
         const user = await User.findById(req.user.userId);
         if (!user) {

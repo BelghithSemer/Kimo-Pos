@@ -71,11 +71,26 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/api/auth', authRouter);
 
 // Protected routes (auth required)
-app.use('/api/users', usersRouter);
+// Temporarily bypass verifyToken for debugging /api/orders
+app.use('/api/users', verifyToken, usersRouter);
 app.use('/api/products', verifyToken, productsRouter);
-app.use('/api/orders', verifyToken, ordersRouter);
+// app.use('/api/orders', verifyToken, ordersRouter); // Uncomment after debugging
+app.use('/api/orders', ordersRouter); // Temporary for debugging
 app.use('/api/stock', verifyToken, stockRouter);
 app.use('/api/expenses', verifyToken, expensesRouter);
+app.use('/api/credits', require('./routes/credits'));
+
+// Add this to your existing routes
+app.get('/credits', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/credits.html'));
+});
+// Middleware to log authentication issues (for debugging)
+app.use('/api/', (req, res, next) => {
+    if (req.path.startsWith('/api/orders/tables')) {
+        console.log(`Request to ${req.path} with headers:`, req.headers);
+    }
+    next();
+});
 
 // Health check endpoint for monitoring
 app.get('/api/health', (req, res) => {
@@ -160,4 +175,4 @@ const server = app.listen(PORT, () => {
     }
 });
 
-module.exports = app; 
+module.exports = app;

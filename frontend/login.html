@@ -24,12 +24,26 @@
         .form-signin .form-floating:focus-within {
             z-index: 2;
         }
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <main class="form-signin">
         <form id="login-form">
             <div class="text-center mb-4">
+                <div class="logo">☕</div>
                 <h1 class="h3 mb-3 fw-normal">Simple POS</h1>
                 <p class="text-muted">Please sign in to continue</p>
             </div>
@@ -47,6 +61,13 @@
             </div>
 
             <button class="w-100 btn btn-lg btn-primary" type="submit">Sign in</button>
+            
+            <div class="mt-4 text-center">
+                <small class="text-muted">
+                    Default admin: admin@pos.com / admin123<br>
+                    Default cashier: cashier@pos.com / cashier123
+                </small>
+            </div>
             
             <p class="mt-5 mb-3 text-muted text-center">
                 &copy; 2024 Simple POS
