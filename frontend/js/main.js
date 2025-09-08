@@ -1,23 +1,85 @@
-// Add authentication wrapper
 const originalFetch = window.fetch;
 window.fetch = function(url, options = {}) {
-    if (url.startsWith('/api/')) {
-        options.headers = {
-            ...options.headers,
-            ...getAuthHeaders()
-        };
-        console.log(`Fetching ${url} with headers:`, options.headers);
+  if (url.startsWith('/api/')) {
+    options.headers = {
+      ...options.headers,
+      ...getAuthHeaders()
+    };
+    
+    // Add offline detection
+    if (!navigator.onLine) {
+      console.log('Offline: Cannot make API request to', url);
+      return Promise.reject(new Error('No internet connection'));
     }
-    return originalFetch(url, options);
+  }
+  
+  return originalFetch(url, options)
+    .catch(error => {
+      console.error('Fetch error:', error);
+      throw error;
+    });
 };
 
+// Global variable for install prompt
+let deferredPrompt;
+
+let offlineManager;
+
+// Flag to track if event listeners are already attached
+let eventListenersAttached = false;
+
 document.addEventListener('DOMContentLoaded', () => {
+    offlineManager = window.offlineManager;
+    
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch(error => {
+                console.log('ServiceWorker registration failed: ', error);
+            });
+    }
+
+    // Handle install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Show install button
+        const installButton = document.getElementById('install-button');
+        if (installButton) {
+            installButton.style.display = 'block';
+            
+            // Remove any existing event listener first to avoid duplicates
+            installButton.replaceWith(installButton.cloneNode(true));
+            const newInstallButton = document.getElementById('install-button');
+            
+            newInstallButton.addEventListener('click', () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(choiceResult => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('User accepted the install prompt');
+                        } else {
+                            console.log('User dismissed the install prompt');
+                        }
+                        deferredPrompt = null;
+                        newInstallButton.style.display = 'none';
+                    });
+                }
+            });
+        }
+    });
+
     let currentSale = [];
     let selectedTableId = null;
     let selectedOrderType = 'dine-in';
     let editingOrderId = null;
     let selectedCustomerId = null;
     let creditCustomers = [];
+    let isProcessingOrder = false; // Flag to prevent multiple order submissions
 
     // Product categories for color coding
     const productCategories = {
@@ -25,6 +87,41 @@ document.addEventListener('DOMContentLoaded', () => {
         'drinks': ['eau', 'water', 'boisson gazeux', 'coca', 'fanta', 'sprite', 'pepsi', 'juice', 'jus'],
         'other': [] // everything else
     };
+
+    function checkOnlineStatus() {
+        if (!navigator.onLine) {
+            console.log('App is offline');
+            showOfflineNotification();
+            
+            // Load offline table status
+            loadOfflineTables();
+            // Load offline orders
+            loadOfflineOrdersList();
+        } else {
+            // Hide offline notification
+            const offlineIndicator = document.getElementById('offline-indicator');
+            if (offlineIndicator) {
+                offlineIndicator.style.display = 'none';
+            }
+            
+            // We're back online - sync offline orders
+            syncOfflineOrders();
+        }
+    }
+
+    function showOfflineNotification() {
+        const offlineIndicator = document.getElementById('offline-indicator');
+        if (offlineIndicator) {
+            offlineIndicator.style.display = 'block';
+        }
+        
+        // Remove when back online
+        window.addEventListener('online', () => {
+            if (offlineIndicator) {
+                offlineIndicator.style.display = 'none';
+            }
+        });
+    }
     
     // Get category colors
     function getCategoryColor(productName, category = null) {
@@ -33,9 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if category is provided
         if (category) {
             switch(category) {
-                case 'coffee': return 'btn-warning'; // Brown/Orange for coffee
-                case 'drinks': return 'btn-info'; // Blue for drinks
-                default: return 'btn-success'; // Green for others
+                case 'coffee': return 'btn-warning';
+                case 'drinks': return 'btn-info';
+                default: return 'btn-success';
             }
         }
         
@@ -91,6 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load credit customers
     function loadCreditCustomers() {
+        // Only load credit customers when online
+        if (!navigator.onLine) {
+            const customerSelect = document.getElementById('customer-select');
+            customerSelect.innerHTML = '<option value="">Select existing customer</option>';
+            return;
+        }
+
         fetch('/api/credits/customers')
             .then(response => {
                 if (!response.ok) {
@@ -159,6 +263,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Complete credit order
     async function completeCreditOrder() {
+        // Credit orders only work online
+        if (!navigator.onLine) {
+            alert('Credit orders require internet connection.');
+            return;
+        }
+
         let customerId = selectedCustomerId;
         let customerName = '';
         
@@ -268,108 +378,149 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Load tables
-    function loadTables() {
-        fetch('/api/orders/tables')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(tables => {
-                console.log('Tables received from API:', tables);
-                const tableGrid = document.getElementById('table-grid');
-                tableGrid.innerHTML = '';
-                
-                if (!Array.isArray(tables) || tables.length === 0) {
-                    tableGrid.innerHTML = '<p class="text-muted text-center">No tables found. Please check backend.</p>';
-                    console.warn('No tables data received or data is not an array:', tables);
-                    return;
-                }
-                
-                tables.forEach(table => {
-                    const col = document.createElement('div');
-                    col.className = 'col-3 col-md-2 col-lg-3';
-                    col.innerHTML = `
-                        <button class="btn btn-table w-100 ${table.status === 'occupied' ? 'table-occupied' : 'btn-outline-primary'}" 
-                            data-id="${table._id}" 
-                            data-number="${table.table_number}">
-                            Table ${table.table_number}
-                        </button>
-                    `;
-                    tableGrid.appendChild(col);
-                    console.log(`Added Table ${table.table_number} to grid.`);
-                });
+    async function loadTables() {
+        if (!navigator.onLine) {
+            await loadOfflineTables();
+            return;
+        }
 
-                // Add event listeners to table buttons
-                document.querySelectorAll('.btn-table').forEach(button => {
-                    button.addEventListener('click', () => {
-                        const tableId = button.getAttribute('data-id');
-                        const tableNumber = button.getAttribute('data-number');
-                        selectTable(tableId, tableNumber);
-
-                        // If table is occupied, load its order into 'Current Order' section!
-                        if (button.classList.contains('table-occupied')) {
-                            fetch(`/api/orders/table/${tableId}`)
-                                .then(res => res.json())
-                                .then(order => {
-                                    if (order && order.items && order.items.length > 0) {
-                                        currentSale = order.items.map(item => ({
-                                            id: item.product_id,
-                                            name: item.product_name,
-                                            price: item.price,
-                                            base_price: item.base_price,
-                                            quantity: item.quantity
-                                        }));
-                                        editingOrderId = order._id;
-                                        selectedOrderType = order.order_type;
-                                        selectedTableId = order.table_id;
-                                        document.getElementById('order-type').value = order.order_type;
-                                        renderSale();
-                                        updateSaleCount();
-                                        updateDeleteButtonVisibility();
-                                        showCreditSection();
-                                        document.getElementById('selected-table-info').textContent =
-                                            `Table ${tableNumber} - Editing order #${order.order_number}`;
-                                    } else {
-                                        // No open order, reset as new
-                                        currentSale = [];
-                                        editingOrderId = null;
-                                        renderSale();
-                                        updateSaleCount();
-                                        updateDeleteButtonVisibility();
-                                        showCreditSection();
-                                        document.getElementById('selected-table-info').textContent =
-                                            `Table ${tableNumber} - No active order.`;
-                                    }
-                                })
-                                .catch(() => {
-                                    alert("Error loading table's order!");
-                                });
-                        } else {
-                            // Free table = start a new sale as before
-                            currentSale = [];
-                            editingOrderId = null;
-                            renderSale();
-                            updateSaleCount();
-                            updateDeleteButtonVisibility();
-                            showCreditSection();
-                            document.getElementById('selected-table-info').textContent =
-                                `Table ${tableNumber} Selected`;
-                        }
-                        
-                        // Visual feedback!
-                        document.querySelectorAll('.btn-table').forEach(btn => btn.classList.remove('table-selected'));
-                        button.classList.add('table-selected');
-                    });
-                });
-                console.log(`Added event listeners to ${document.querySelectorAll('.btn-table').length} table buttons.`);
-            })
-            .catch(error => {
-                console.error('Error loading tables:', error);
-                const tableGrid = document.getElementById('table-grid');
-                tableGrid.innerHTML = '<p class="text-muted text-center">Error loading tables. Check console for details.</p>';
+        try {
+            const response = await fetch('/api/orders/tables');
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            const tables = await response.json();
+            console.log('Tables received from API:', tables);
+            const tableGrid = document.getElementById('table-grid');
+            tableGrid.innerHTML = '';
+            
+            if (!Array.isArray(tables) || tables.length === 0) {
+                tableGrid.innerHTML = '<p class="text-muted text-center">No tables found. Please check backend.</p>';
+                console.warn('No tables data received or data is not an array:', tables);
+                return;
+            }
+            
+            tables.forEach(table => {
+                const col = document.createElement('div');
+                col.className = 'col-3 col-md-2 col-lg-3';
+                col.innerHTML = `
+                    <button class="btn btn-table w-100 ${table.status === 'occupied' ? 'table-occupied' : 'btn-outline-primary'}" 
+                        data-id="${table._id}" 
+                        data-number="${table.table_number}">
+                        Table ${table.table_number}
+                    </button>
+                `;
+                tableGrid.appendChild(col);
+                console.log(`Added Table ${table.table_number} to grid.`);
             });
+
+            // Add event listeners to table buttons
+            document.querySelectorAll('.btn-table').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const tableId = button.getAttribute('data-id');
+                    const tableNumber = button.getAttribute('data-number');
+                    selectTable(tableId, tableNumber);
+
+                    // If table is occupied, load its order
+                    if (button.classList.contains('table-occupied')) {
+                        if (!navigator.onLine) {
+                            // Load from offline storage when offline
+                            try {
+                                const tableOrders = await offlineManager.getOfflineOrdersForTable(tableId);
+                                
+                                if (tableOrders && tableOrders.length > 0) {
+                                    // Use the most recent order
+                                    const tableOrder = tableOrders[tableOrders.length - 1];
+                                    currentSale = tableOrder.items;
+                                    editingOrderId = tableOrder.id; // Use offline order ID
+                                    selectedOrderType = tableOrder.order_type;
+                                    selectedTableId = tableOrder.table_id;
+                                    document.getElementById('order-type').value = tableOrder.order_type;
+                                    renderSale();
+                                    updateSaleCount();
+                                    updateDeleteButtonVisibility();
+                                    showCreditSection();
+                                    document.getElementById('selected-table-info').textContent =
+                                        `Table ${tableNumber} - Editing offline order`;
+                                } else {
+                                    // No offline order found
+                                    currentSale = [];
+                                    editingOrderId = null;
+                                    renderSale();
+                                    updateSaleCount();
+                                    updateDeleteButtonVisibility();
+                                    showCreditSection();
+                                    document.getElementById('selected-table-info').textContent =
+                                        `Table ${tableNumber} - No active order.`;
+                                }
+                            } catch (error) {
+                                console.error('Error loading offline order:', error);
+                                alert("Error loading table's order from offline storage!");
+                            }
+                        } else {
+                            // Online - load from server
+                            try {
+                                const response = await fetch(`/api/orders/table/${tableId}`);
+                                if (!response.ok) throw new Error('Failed to fetch order');
+                                
+                                const order = await response.json();
+                                if (order && order.items && order.items.length > 0) {
+                                    currentSale = order.items.map(item => ({
+                                        id: item.product_id,
+                                        name: item.product_name,
+                                        price: item.price,
+                                        base_price: item.base_price,
+                                        quantity: item.quantity
+                                    }));
+                                    editingOrderId = order._id;
+                                    selectedOrderType = order.order_type;
+                                    selectedTableId = order.table_id;
+                                    document.getElementById('order-type').value = order.order_type;
+                                    renderSale();
+                                    updateSaleCount();
+                                    updateDeleteButtonVisibility();
+                                    showCreditSection();
+                                    document.getElementById('selected-table-info').textContent =
+                                        `Table ${tableNumber} - Editing order #${order.order_number}`;
+                                } else {
+                                    // No open order, reset as new
+                                    currentSale = [];
+                                    editingOrderId = null;
+                                    renderSale();
+                                    updateSaleCount();
+                                    updateDeleteButtonVisibility();
+                                    showCreditSection();
+                                    document.getElementById('selected-table-info').textContent =
+                                        `Table ${tableNumber} - No active order.`;
+                                }
+                            } catch (error) {
+                                console.error('Error loading order:', error);
+                                alert("Error loading table's order!");
+                            }
+                        }
+                    } else {
+                        // Free table = start a new sale
+                        currentSale = [];
+                        editingOrderId = null;
+                        renderSale();
+                        updateSaleCount();
+                        updateDeleteButtonVisibility();
+                        showCreditSection();
+                        document.getElementById('selected-table-info').textContent =
+                            `Table ${tableNumber} Selected`;
+                    }
+                    
+                    // Visual feedback!
+                    document.querySelectorAll('.btn-table').forEach(btn => btn.classList.remove('table-selected'));
+                    button.classList.add('table-selected');
+                });
+            });
+            console.log(`Added event listeners to ${document.querySelectorAll('.btn-table').length} table buttons.`);
+        } catch (error) {
+            console.error('Error loading tables:', error);
+            const tableGrid = document.getElementById('table-grid');
+            tableGrid.innerHTML = '<p class="text-muted text-center">Error loading tables. Check console for details.</p>';
+        }
     }
     
     // Select a table or reset for to-go/employee/credit
@@ -539,6 +690,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentSale.forEach((item, index) => {
             const itemTotal = item.price * item.quantity;
+            total += selectedOrderType === 'employee' ? 0 : itemTotal;
+            
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
             li.innerHTML = `
@@ -551,7 +704,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </span>
             `;
             saleList.appendChild(li);
-            total += selectedOrderType === 'employee' ? 0 : itemTotal;
         });
         
         // Update total (credit orders show full total)
@@ -586,6 +738,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load today's orders
     function loadTodaysOrders() {
+        if (!navigator.onLine) {
+            // When offline, show offline orders instead
+            loadOfflineOrdersList();
+            return;
+        }
+
         fetch('/api/orders/today')
             .then(response => {
                 if (!response.ok) {
@@ -606,47 +764,109 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 
+                // Display server orders
                 orders.slice(0, 10).forEach(order => {
-                    const orderTime = new Date(order.timestamp).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
-                    const statusClass = order.status === 'paid' ? 'success' : 'warning';
-                    const statusText = order.status === 'paid' ? 'Paid' : 'Unpaid';
-                    const typeLabel = order.order_type === 'dine-in' ? 'Table TBD' : order.order_type.charAt(0).toUpperCase() + order.order_type.slice(1);
-                    
-                    const orderDiv = document.createElement('div');
-                    orderDiv.className = 'order-item mb-2 p-2 border rounded';
-                    orderDiv.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="text-muted">${orderTime}</small><br>
-                                <strong>${order.order_number}</strong><br>
-                                <small>${typeLabel}</small><br>
-                                <span class="currency">${formatCurrency(order.total)}</span>
-                            </div>
-                            <button class="btn btn-sm btn-${statusClass} order-status status-btn" 
-                                data-order-id="${order._id}" 
-                                data-status="${order.status}">
-                                ${statusText}
-                            </button>
-                        </div>
-                    `;
-                    ordersList.appendChild(orderDiv);
+                    const orderElement = createOrderElement(order, false);
+                    ordersList.appendChild(orderElement);
                 });
                 
-                // Add event listeners to status buttons
-                document.querySelectorAll('.status-btn').forEach(button => {
-                    button.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const orderId = this.getAttribute('data-order-id');
-                        const currentStatus = this.getAttribute('data-status');
-                        const newStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
-                        updateOrderStatus(orderId, newStatus);
-                    });
-                });
+                // Also load and display offline orders
+                loadOfflineOrdersList();
             })
-            .catch(error => console.error('Error loading orders:', error));
+            .catch(error => {
+                console.error('Error loading orders:', error);
+                // If online but server error, show offline orders
+                loadOfflineOrdersList();
+            });
+    }
+
+    function createOrderElement(order, isOffline) {
+        const orderTime = new Date(order.timestamp).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        let statusClass, statusText;
+        if (isOffline) {
+            statusClass = 'secondary';
+            statusText = 'Not Synced';
+        } else {
+            statusClass = order.status === 'paid' ? 'success' : 'warning';
+            statusText = order.status === 'paid' ? 'Paid' : 'Unpaid';
+        }
+        
+        // Determine order type label
+        let typeLabel;
+        if (order.order_type === 'dine-in' && order.table_id) {
+            typeLabel = `Table ${order.table_number || 'Unknown'}`;
+        } else {
+            typeLabel = order.order_type.charAt(0).toUpperCase() + order.order_type.slice(1);
+        }
+        
+        // Calculate total if not provided
+        let orderTotal = order.total || 0;
+        if (!orderTotal && order.items) {
+            orderTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        }
+        
+        const orderDiv = document.createElement('div');
+        orderDiv.className = `order-item mb-2 p-2 border rounded ${isOffline ? 'offline-order-ticket' : ''}`;
+        
+        orderDiv.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted">${orderTime}</small><br>
+                    <strong>${order.order_number || 'Offline Order'}</strong><br>
+                    <small>${typeLabel}</small><br>
+                    <span class="currency">${formatCurrency(orderTotal)}</span>
+                </div>
+                <div class="d-flex flex-column align-items-end">
+                    <button class="btn btn-sm btn-${statusClass} order-status status-btn mb-1" 
+                        data-order-id="${isOffline ? 'offline-' + order.id : order._id}" 
+                        data-status="${isOffline ? 'offline' : order.status}"
+                        data-is-offline="${isOffline}">
+                        ${statusText}
+                    </button>
+                    ${isOffline ? '<span class="badge bg-warning text-dark">Offline</span>' : ''}
+                </div>
+            </div>
+        `;
+        
+        // Add event listener to status button for online orders only
+        if (!isOffline) {
+            const statusBtn = orderDiv.querySelector('.status-btn');
+            statusBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const orderId = this.getAttribute('data-order-id');
+                const currentStatus = this.getAttribute('data-status');
+                const newStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
+                updateOrderStatus(orderId, newStatus);
+            });
+        }
+        
+        return orderDiv;
+    }
+
+    async function loadOfflineOrdersList() {
+        try {
+            const offlineOrders = await offlineManager.getOfflineOrders();
+            const ordersList = document.getElementById('orders-list');
+            const ordersCount = document.getElementById('orders-count');
+            
+            if (offlineOrders.length > 0) {
+                // Count both online and offline orders
+                const currentCount = parseInt(ordersCount.textContent) || 0;
+                ordersCount.textContent = currentCount + offlineOrders.length;
+                
+                // Display offline orders
+                offlineOrders.forEach(order => {
+                    const orderElement = createOrderElement(order, true);
+                    ordersList.appendChild(orderElement);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading offline orders:', error);
+        }
     }
 
     // Update order status
@@ -680,19 +900,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Complete order function
-    function completeOrder() {
+    async function completeOrder() {
+        // Prevent multiple submissions
+        if (isProcessingOrder) return;
+        isProcessingOrder = true;
+        
         if (currentSale.length === 0) {
             alert('No items in current order!');
+            isProcessingOrder = false;
             return;
         }
         
         if (selectedOrderType === 'dine-in' && !selectedTableId) {
             alert('Please select a table for dine-in orders.');
+            isProcessingOrder = false;
             return;
         }
         
-        // Handle credit orders
+        // Handle credit orders (they need special offline handling)
         if (selectedOrderType === 'credit') {
+            isProcessingOrder = false;
             return completeCreditOrder();
         }
         
@@ -700,47 +927,203 @@ document.addEventListener('DOMContentLoaded', () => {
         completeBtn.disabled = true;
         completeBtn.textContent = 'Processing...';
         
+        // Calculate total
+        const total = currentSale.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
         const orderPayload = {
             items: currentSale,
             table_id: selectedTableId,
-            order_type: selectedOrderType
+            order_type: selectedOrderType,
+            timestamp: new Date().toISOString(),
+            total: total,
+            editingOrderId: editingOrderId,
+            status: 'unpaid' // Default status for new orders
         };
 
-        let fetchPromise;
-        if (editingOrderId) {
-            fetchPromise = fetch(`/api/orders/${editingOrderId}/items`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: currentSale })
-            });
-        } else {
-            fetchPromise = fetch('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderPayload)
-            });
-        }
-
-        fetchPromise
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+        // Check if we're online
+        if (navigator.onLine) {
+            // Online - send to server directly
+            try {
+                let response;
+                if (editingOrderId) {
+                    response = await fetch(`/api/orders/${editingOrderId}/items`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items: currentSale })
+                    });
+                } else {
+                    response = await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(orderPayload)
+                    });
+                }
+                
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                
+                const order = await response.json();
+                const action = editingOrderId ? 'updated' : 'created';
+                alert(`Order ${order.order_number || ''} ${action} successfully!\nTotal: ${formatCurrency(order.total || 0)}`);
+                resetOrderForm();
+            } catch (error) {
+                console.error('Error saving order:', error);
+                alert('Error saving order! Please try again.');
+            } finally {
+                completeBtn.disabled = false;
+                completeBtn.textContent = 'Complete Order';
+                isProcessingOrder = false;
             }
-            return response.json();
-        })
-        .then(order => {
-            const action = editingOrderId ? 'updated' : 'created';
-            alert(`Order ${order.order_number || ''} ${action} successfully!\nTotal: ${formatCurrency(order.total || 0)}`);
-            resetOrderForm();
-        })
-        .catch(error => {
-            console.error('Error saving order:', error);
-            alert('Error saving order! Please try again.');
-        })
-        .finally(() => {
-            completeBtn.disabled = false;
-            completeBtn.textContent = 'Complete Order';
-        });
+        } else {
+            // Offline - save to local storage
+            try {
+                // Ensure offlineManager is initialized
+                await offlineManager.ensureInitialized();
+                
+                // Save order to offline storage
+                const orderId = await offlineManager.saveOfflineOrder(orderPayload);
+                
+                // Update table status locally if it's a dine-in order
+                if (selectedOrderType === 'dine-in' && selectedTableId) {
+                    await offlineManager.updateTableStatus(selectedTableId, 'occupied');
+                    // Update UI to show table as occupied
+                    document.querySelectorAll('.btn-table').forEach(btn => {
+                        if (btn.getAttribute('data-id') === selectedTableId) {
+                            btn.classList.add('table-occupied');
+                        }
+                    });
+                }
+                
+                // Show offline order notification
+                showOfflineOrderNotification();
+                alert('Order saved offline! It will be synced when connection is restored.');
+                resetOrderForm();
+            } catch (error) {
+                console.error('Error saving offline order:', error);
+                alert('Error saving offline order!');
+            } finally {
+                completeBtn.disabled = false;
+                completeBtn.textContent = 'Complete Order';
+                isProcessingOrder = false;
+            }
+        }
+    }
+    
+    function showOfflineOrderNotification() {
+        // Create a temporary notification
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-warning position-fixed';
+        notification.style.cssText = 'top: 70px; right: 20px; z-index: 1050; min-width: 250px;';
+        notification.innerHTML = `
+            <div class="d-flex align-items-center">
+                <span class="me-2">📝</span>
+                <span>Order saved offline</span>
+                <span class="badge bg-warning ms-2">Not Synced</span>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.classList.add('fade');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 500);
+        }, 3000);
+    }
+
+    async function syncOfflineOrders() {
+        try {
+            // Ensure offlineManager is initialized
+            await offlineManager.ensureInitialized();
+            
+            const offlineOrders = await offlineManager.getOfflineOrders();
+            
+            for (const order of offlineOrders) {
+                try {
+                    // Check if this is an edit of an existing order
+                    let response;
+                    if (order.editingOrderId) {
+                        // This was an edit of an existing order
+                        response = await fetch(`/api/orders/${order.editingOrderId}/items`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ items: order.items })
+                        });
+                    } else {
+                        // This is a new order
+                        response = await fetch('/api/orders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                items: order.items,
+                                table_id: order.table_id,
+                                order_type: order.order_type,
+                                timestamp: order.timestamp,
+                                total: order.total,
+                                status: order.status || 'unpaid'
+                            })
+                        });
+                    }
+                    
+                    if (response.ok) {
+                        const savedOrder = await response.json();
+                        console.log('Offline order synced successfully:', savedOrder);
+                        
+                        // Remove from offline storage after successful sync
+                        await offlineManager.removeOfflineOrder(order.id);
+                        
+                        // Only update table status if order is paid
+                        if (order.table_id && order.order_type === 'dine-in' && order.status === 'paid') {
+                            await offlineManager.updateTableStatus(order.table_id, 'free');
+                            // Update UI to show table as free
+                            document.querySelectorAll('.btn-table').forEach(btn => {
+                                if (btn.getAttribute('data-id') === order.table_id) {
+                                    btn.classList.remove('table-occupied');
+                                }
+                            });
+                        }
+                        
+                        // Refresh the orders list to remove the offline indicator
+                        loadTodaysOrders();
+                    }
+                } catch (error) {
+                    console.error('Error syncing offline order:', error);
+                    // Don't remove from queue if sync failed
+                }
+            }
+            
+            // Reload tables and orders from server after sync
+            loadTables();
+            loadTodaysOrders();
+        } catch (error) {
+            console.error('Error getting offline orders:', error);
+        }
+    }
+
+    async function loadOfflineTables() {
+        try {
+            // Ensure offlineManager is initialized
+            await offlineManager.ensureInitialized();
+            
+            const tablesStatus = await offlineManager.getAllTablesStatus();
+            
+            tablesStatus.forEach(table => {
+                document.querySelectorAll('.btn-table').forEach(btn => {
+                    if (btn.getAttribute('data-id') === table.id) {
+                        if (table.status === 'occupied') {
+                            btn.classList.add('table-occupied');
+                        } else {
+                            btn.classList.remove('table-occupied');
+                        }
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error loading offline tables:', error);
+        }
     }
 
     // Delete order function
@@ -760,10 +1143,13 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(() => alert('Error deleting order!'));
     }
 
-    // Event listeners
-    document.getElementById('clear-sale').addEventListener('click', clearSale);
-    document.getElementById('complete-order').addEventListener('click', completeOrder);
-    document.getElementById('delete-order').addEventListener('click', deleteOrder);
+    // Event listeners - only attach once
+    if (!eventListenersAttached) {
+        document.getElementById('clear-sale').addEventListener('click', clearSale);
+        document.getElementById('complete-order').addEventListener('click', completeOrder);
+        document.getElementById('delete-order').addEventListener('click', deleteOrder);
+        eventListenersAttached = true;
+    }
 
     // Initialize credit form event listeners after DOM is ready
     setTimeout(() => {
@@ -780,6 +1166,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showCreditSection = showCreditSection;
     window.completeCreditOrder = completeCreditOrder;
 
+    // offline 
+    window.addEventListener('online', checkOnlineStatus);
+    window.addEventListener('offline', checkOnlineStatus);
+    checkOnlineStatus(); // Initial check
+
     // Initial load
     loadTables();
     loadProducts();
@@ -791,7 +1182,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Refresh orders and tables every 30 seconds
     setInterval(() => {
-        loadTodaysOrders();
-        loadTables();
+        if (navigator.onLine) {
+            loadTodaysOrders();
+            loadTables();
+        }
     }, 30000);
 });

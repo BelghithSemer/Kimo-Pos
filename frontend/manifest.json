@@ -1,0 +1,20 @@
+{
+  "name": "Coffee Shop Kimo POS",
+  "short_name": "KIMO POS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "logo_kimo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo_kimo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
