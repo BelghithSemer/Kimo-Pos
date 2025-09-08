@@ -33,7 +33,17 @@ function verifyToken(req, res, next) {
     }
 }
 
-// Middleware to check if user is admin
+// Middleware to check for specific roles
+function checkRole(roles) {
+    return (req, res, next) => {
+        if (!req.user || !roles.includes(req.user.role)) {
+            return res.status(403).json({ error: 'Forbidden: You do not have the required role.' });
+        }
+        next();
+    };
+}
+
+// Middleware to check if user is admin (can be deprecated in favor of checkRole)
 function isAdmin(req, res, next) {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
@@ -44,5 +54,6 @@ function isAdmin(req, res, next) {
 module.exports = {
     generateToken,
     verifyToken,
-    isAdmin
+    isAdmin,
+    checkRole
 };

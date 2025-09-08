@@ -17,6 +17,7 @@ const productSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     base_price: { type: Number, default: 0 },
     category: { type: String, default: 'other', enum: ['coffee', 'drinks', 'other'] }, // NEW FIELD
+    image: { type: String },
     stock_items: [{
         stock_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Stock' },
         quantity_per_unit: { type: Number, default: 0 }
@@ -38,7 +39,7 @@ const orderSchema = new mongoose.Schema({
     }],
     total: { type: Number, required: true, default: 0 }, // Revenue total (excluding employee orders)
     base_total: { type: Number, default: 0 }, // Cost total
-    status: { type: String, default: 'unpaid', enum: ['paid', 'unpaid'] },
+    status: { type: String, default: 'pending', enum: ['pending', 'confirmed', 'paid', 'unpaid', 'cancelled'] },
     timestamp: { type: Date, default: Date.now }
 });
 
@@ -132,14 +133,26 @@ const Expense = mongoose.model('Expense', expenseSchema);
 const StockMovement = mongoose.model('StockMovement', stockMovementSchema);
 const Table = mongoose.model('Table', tableSchema); // THIS WAS MISSING!
 
+// PromoSlide Schema
+const promoSlideSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    description: { type: String },
+    image: { type: String, required: true },
+    active: { type: Boolean, default: true },
+    expiryDate: { type: Date }
+});
+
+const PromoSlide = mongoose.model('PromoSlide', promoSlideSchema);
+
 module.exports = {
     Product,
     Order,
     Stock,
     Expense,
     StockMovement,
-    Table ,
+    Table,
     CreditCustomer,
     CreditOrder,
-    CreditPayment
+    CreditPayment,
+    PromoSlide
 };

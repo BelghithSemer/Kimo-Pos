@@ -33,6 +33,8 @@ const productsRouter = require('./routes/products');
 const ordersRouter = require('./routes/orders');
 const stockRouter = require('./routes/stock');
 const expensesRouter = require('./routes/expenses');
+const promosRouter = require('./routes/promos');
+const clientRouter = require('./routes/client');
 const { verifyToken } = require('./middleware/auth');
 
 const app = express();
@@ -69,16 +71,16 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // API Routes
 // Public routes (no auth required)
 app.use('/api/auth', authRouter);
+app.use('/api/client', clientRouter);
 
 // Protected routes (auth required)
-// Temporarily bypass verifyToken for debugging /api/orders
 app.use('/api/users', verifyToken, usersRouter);
 app.use('/api/products', verifyToken, productsRouter);
-// app.use('/api/orders', verifyToken, ordersRouter); // Uncomment after debugging
-app.use('/api/orders', ordersRouter); // Temporary for debugging
+app.use('/api/orders', verifyToken, ordersRouter);
 app.use('/api/stock', verifyToken, stockRouter);
 app.use('/api/expenses', verifyToken, expensesRouter);
-app.use('/api/credits', require('./routes/credits'));
+app.use('/api/credits', verifyToken, require('./routes/credits'));
+app.use('/api/promos', verifyToken, promosRouter);
 
 // Add this to your existing routes
 app.get('/credits', (req, res) => {
