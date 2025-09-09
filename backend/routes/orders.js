@@ -2,6 +2,41 @@ const express = require('express');
 const router = express.Router();
 const { Order, Product, Stock, StockMovement, Table } = require('../database/db');
 const { Parser } = require('json2csv');
+const { verifyToken, checkRole } = require('../middleware/auth');
+
+// @route   PATCH /api/orders/:id/confirm
+// @desc    Confirm a pending order (cashier action)
+// @access  Cashier/Admin
+router.patch('/:id/confirm', verifyToken, checkRole(['cashier', 'admin']), async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+
+        if (!order) {
+            return res.status(404).json({ msg: 'Order not found' });
+        }
+
+        if (order.status !== 'pending') {
+            return res.status(400).json({ msg: `Order cannot be confirmed because its status is '${order.status}'` });
+        }
+
+        // Update order status
+        order.status = 'confirmed';
+        await order.save();
+
+        // If it's a dine-in order, update the table status
+        if (order.table_id) {
+            await Table.findByIdAndUpdate(order.table_id, {
+                status: 'occupied',
+                current_order: order._id
+            });
+        }
+
+        res.json(order);
+    } catch (err) {
+        console.error('Error in PATCH /orders/:id/confirm:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Get current unpaid order for a specific table
 router.get('/table/:tableId', async (req, res) => {
